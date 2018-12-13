@@ -16,8 +16,10 @@ public class LinkApi {
 
 
     private SubmitResponse getLinkResponse;
+    //In memory cache HashMap for faster Access
     private Map<String,SubmitResponse> dictionary = new HashMap<String,SubmitResponse>();
 
+    //Submit a Link to shorten. Generates a Link Id, collects an Object with only one Property {Url}
     @PostMapping("/submit")
     @ResponseBody
     public SubmitResponse submit(@RequestBody SubmitRequest submitRequest) throws Exception {
@@ -25,15 +27,17 @@ public class LinkApi {
         AtomicBoolean isFound = new AtomicBoolean(false);
 
         for(int i = 0; i < dictionary.entrySet().size(); i++)
-            for (SubmitResponse submitResponses : dictionary.values())
+            for (SubmitResponse submitResponses : dictionary.values()) {
                 if (submitResponses.getOldUrl().equals(submitRequest.getUrl())) {
                     getLinkResponse = new SubmitResponse("0", submitRequest.getUrl(), submitResponses.getLinkId(), "URL Already exists", null);
                     isFound.set(true);
                     return getLinkResponse;
+                } else if (submitResponses.getOldUrl().equals(UrlDao.getOldurl(submitRequest.getUrl()).getOldUrl())) {
+                    getLinkResponse = new SubmitResponse("0", UrlDao.getOldurl(submitRequest.getUrl()).getOldUrl(), submitResponses.getLinkId(), "URL Already exists", null);
+                    isFound.set(true);
+                    return getLinkResponse;
                 }
-                else{
-
-                }
+            }
 
         if (isFound.get() == false) {
             getLinkResponse = new SubmitResponse(generatedCode, submitRequest.getUrl(), "200", "URL created Successfully", null);
@@ -44,6 +48,7 @@ public class LinkApi {
         return getLinkResponse;
     }
 
+    //Find a link by LinkId
     @GetMapping("/getlink/{KeyId}")
     @ResponseBody
     public SubmitResponse getLink(@PathVariable("KeyId") String Id) throws Exception {
@@ -60,9 +65,14 @@ public class LinkApi {
 
     }
 
+    //Return all Shortened Links
     @GetMapping("/getall")
-    public  Map<String,SubmitResponse> getUrls (){
-        return dictionary;
+    public  Map<String,SubmitResponse> getUrls () throws Exception {
+        if (dictionary != null){
+            return null;
+        }else{
+            return UrlDao.getall();
+        }
     }
 
 }

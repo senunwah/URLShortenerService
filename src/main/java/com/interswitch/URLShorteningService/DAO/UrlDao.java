@@ -42,6 +42,30 @@ public class UrlDao {
         return true;
     }
 
+    public static SubmitResponse getOldurl(String Url){
+        jdbcTemplate.setResultsMapCaseInsensitive(true);
+        SqlParameterSource params = new MapSqlParameterSource("OldUrl",Url);
+        SimpleJdbcCall getUrlProc = new SimpleJdbcCall(jdbcTemplate).withSchemaName("dbo").withProcedureName("getUrl");
+        Map<String,Object> map = getUrlProc.execute(params);
+
+        Map<String,SubmitResponse> responseMap = null;
+        for (Map.Entry<String,Object> entry: map.entrySet()){
+            if (entry.getValue() instanceof SubmitResponse){
+                responseMap.put(entry.getKey(), (SubmitResponse) entry.getValue());
+            }
+        }
+
+        for(SubmitResponse submitResponse: responseMap.values()){
+            if (submitResponse.getOldUrl().equals(Url)){
+                return submitResponse;
+            }
+        }
+
+
+
+        return null;
+    }
+
     public static SubmitResponse getLink(String Id) throws Exception{
         jdbcTemplate.setResultsMapCaseInsensitive(true);
         SimpleJdbcCall getLinkProc = new SimpleJdbcCall(jdbcTemplate).withSchemaName("dbo").withProcedureName("getLink");
@@ -58,9 +82,13 @@ public class UrlDao {
 
         Map<String,Object> map = getallProcedure.execute();
         Map<String,SubmitResponse> responseMap = null;
-        (SubmitResponse) map.values();
-        
-        return map;
+        for (Map.Entry<String,Object> entry: map.entrySet()){
+            if (entry.getValue() instanceof SubmitResponse){
+                responseMap.put(entry.getKey(), (SubmitResponse) entry.getValue());
+            }
+        }
+
+        return responseMap;
     }
 
 
