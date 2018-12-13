@@ -69,7 +69,7 @@ public class LinkApi {
     @GetMapping("/getall")
     public  Map<String,SubmitResponse> getUrls () throws Exception {
         if (dictionary != null){
-            return null;
+            return dictionary;
         }else{
             return UrlDao.getall();
         }
