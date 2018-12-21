@@ -6,14 +6,16 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.core.SqlParameter;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.core.namedparam.SqlParameterSource;
 import org.springframework.jdbc.core.simple.SimpleJdbcCall;
 
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
+import java.sql.Array;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.*;
 
 public class UrlDao {
 
@@ -23,77 +25,66 @@ public class UrlDao {
     @Autowired
     private static NamedParameterJdbcTemplate parameterJdbcTemplate;
 
-    public static boolean submitLink(SubmitResponse submitResponse) throws Exception{
+    public static boolean submitLink(SubmitResponse submitResponse) throws SQLException{
         jdbcTemplate.setResultsMapCaseInsensitive(true);
         SqlParameterSource params = new MapSqlParameterSource();
         ((MapSqlParameterSource) params).addValue("LinkId",submitResponse.getLinkId());
         ((MapSqlParameterSource) params).addValue("OldUrl",submitResponse.getOldUrl());
         ((MapSqlParameterSource) params).addValue("Domain",SubmitResponse.getDomain());
         ((MapSqlParameterSource) params).addValue("DomainUrl",submitResponse.getDomainUrl());
-        ((MapSqlParameterSource) params).addValue("ResponseCode",submitResponse.getResponseCode());
-        ((MapSqlParameterSource) params).addValue("ResponseMessage",submitResponse.getResponseMessage());
+        ((MapSqlParameterSource) params).addValue("DateCreated",submitResponse.getDateCreated());
 
-        SimpleJdbcCall insertProcedure = new SimpleJdbcCall(jdbcTemplate)
-                .withSchemaName("dbo")
-                .withProcedureName("InsertLink");
 
+        SimpleJdbcCall insertProcedure = new SimpleJdbcCall(jdbcTemplate).withSchemaName("dbo").withProcedureName("InsertLink");
         insertProcedure.execute(params);
-
         return true;
     }
 
-    public static SubmitResponse getOldurl(String Url){
+    public static boolean getOldurl(String Url){
+
         jdbcTemplate.setResultsMapCaseInsensitive(true);
-        SqlParameterSource params = new MapSqlParameterSource("OldUrl",Url);
-        SimpleJdbcCall getUrlProc = new SimpleJdbcCall(jdbcTemplate).withSchemaName("dbo").withProcedureName("getUrl");
-        Map<String,Object> map = getUrlProc.execute(params);
+        SqlParameterSource params = new MapSqlParameterSource();
+        ((MapSqlParameterSource) params).addValue("OldUrl",Url);
+        SimpleJdbcCall simpleJdbcCall = new SimpleJdbcCall(jdbcTemplate).withSchemaName("dbo").withProcedureName("getUrl");
+        Map<String,Object> map = simpleJdbcCall.execute(params);
 
-        Map<String,SubmitResponse> responseMap = null;
-        for (Map.Entry<String,Object> entry: map.entrySet()){
-            if (entry.getValue() instanceof SubmitResponse){
-                responseMap.put(entry.getKey(), (SubmitResponse) entry.getValue());
-            }
+        if(map.values().size() > 1){
+            return true;
         }
 
-        for(SubmitResponse submitResponse: responseMap.values()){
-            if (submitResponse.getOldUrl().equals(Url)){
-                return submitResponse;
-            }
-        }
-
-
-
-        return null;
+        return false;
     }
 
     public static SubmitResponse getLink(String Id) throws Exception{
         jdbcTemplate.setResultsMapCaseInsensitive(true);
-        SimpleJdbcCall getLinkProc = new SimpleJdbcCall(jdbcTemplate).withSchemaName("dbo").withProcedureName("getLink");
         SqlParameterSource params = new MapSqlParameterSource("LinkId",Id);
-        Map<String, Object> map = getLinkProc.execute(params);
+        SimpleJdbcCall getUrlProc = new SimpleJdbcCall(jdbcTemplate).withSchemaName("dbo").withProcedureName("getLink");
+        Map<String,Object> map = getUrlProc.execute(params);
 
-        return (SubmitResponse) map.values();
-    }
+        SubmitResponse submitResponse = null;
 
-    public static Map<String,SubmitResponse> getall() throws Exception{
-
-        jdbcTemplate.setResultsMapCaseInsensitive(true);
-        SimpleJdbcCall getallProcedure = new SimpleJdbcCall(jdbcTemplate);
-
-        Map<String,Object> map = getallProcedure.execute();
-        Map<String,SubmitResponse> responseMap = null;
-        for (Map.Entry<String,Object> entry: map.entrySet()){
-            if (entry.getValue() instanceof SubmitResponse){
-                responseMap.put(entry.getKey(), (SubmitResponse) entry.getValue());
-            }
+        if (map.values().size() > 0){
+            submitResponse = new SubmitResponse((String) map.get("LinkId"), (String) map.get("OldUrl"), (Date) map.get("DateCreated"), "200", "URL Already Exists",null);
         }
 
-        return responseMap;
+        return submitResponse;
     }
 
+    public static Map<String,SubmitResponse> getAll() throws Exception{
 
+        jdbcTemplate.setResultsMapCaseInsensitive(true);
+        Collection<SubmitResponse> cs = jdbcTemplate.query("select * from Link_tbl",new RowMapper(){
+            public Object mapRow(ResultSet rs, int rowNum) throws SQLException {
+                SubmitResponse values = new SubmitResponse(rs.getString("LinkId"),rs.getString("OldUrl"),rs.getDate("DateCreated"),"200","Link was successfully created on "+rs.getString("DateCreated")+"",null);
+                return values;
+            }
+        });
 
-
-
+        Map<String,SubmitResponse> responseMap = new HashMap<String,SubmitResponse>();
+        for (SubmitResponse sr : cs){
+            responseMap.put(sr.getLinkId(),sr);
+        }
+        return responseMap;
+    }
 
 }

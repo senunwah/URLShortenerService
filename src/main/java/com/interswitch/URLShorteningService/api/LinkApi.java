@@ -5,10 +5,9 @@ import com.interswitch.URLShorteningService.services.ShortenLink;
 import com.interswitch.URLShorteningService.api.model.SubmitRequest;
 import com.interswitch.URLShorteningService.api.model.SubmitResponse;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import com.interswitch.URLShorteningService.api.model.Error;
 
 @RestController
 @RequestMapping("api")
@@ -23,26 +22,41 @@ public class LinkApi {
     @PostMapping("/submit")
     @ResponseBody
     public SubmitResponse submit(@RequestBody SubmitRequest submitRequest) throws Exception {
-        String generatedCode = ShortenLink.generateShortUrl(5);
         AtomicBoolean isFound = new AtomicBoolean(false);
 
-        for(int i = 0; i < dictionary.entrySet().size(); i++)
-            for (SubmitResponse submitResponses : dictionary.values()) {
-                if (submitResponses.getOldUrl().equals(submitRequest.getUrl())) {
-                    getLinkResponse = new SubmitResponse("0", submitRequest.getUrl(), submitResponses.getLinkId(), "URL Already exists", null);
-                    isFound.set(true);
-                    return getLinkResponse;
-                } else if (submitResponses.getOldUrl().equals(UrlDao.getOldurl(submitRequest.getUrl()).getOldUrl())) {
-                    getLinkResponse = new SubmitResponse("0", UrlDao.getOldurl(submitRequest.getUrl()).getOldUrl(), submitResponses.getLinkId(), "URL Already exists", null);
-                    isFound.set(true);
-                    return getLinkResponse;
+        for(SubmitResponse submitResponse : dictionary.values()){
+            if(submitResponse.getOldUrl() == submitRequest.getUrl()){
+                isFound.set(true);
+                getLinkResponse = new SubmitResponse(
+                        "",submitRequest.getUrl(),null,"200","URL Already Exists",null
+                );
+            }
+        }
+
+        while (!isFound.get()){
+            if(UrlDao.getOldurl(submitRequest.getUrl())){
+                isFound.set(true);
+                getLinkResponse = new SubmitResponse(
+                        "",submitRequest.getUrl(),null,"200","URL Already Exists",null
+                );
+            }
+            break;
+        }
+
+        while(isFound.get() == false){
+            String LinkId = ShortenLink.generateShortUrl(7);
+            getLinkResponse = new SubmitResponse(LinkId,submitRequest.getUrl(),new Date(),"200","Link was successfully created on "+new Date()+"",null);
+
+            try{
+                if(UrlDao.submitLink(getLinkResponse)){
+                    dictionary.put(LinkId,getLinkResponse);
                 }
             }
+            catch(Exception ex){
+                getLinkResponse = new SubmitResponse(null,submitRequest.getUrl(),null,"400","Error Shortening Url",new ArrayList<Error>() {  } );
+            }
 
-        if (isFound.get() == false) {
-            getLinkResponse = new SubmitResponse(generatedCode, submitRequest.getUrl(), "200", "URL created Successfully", null);
-            dictionary.put(generatedCode, getLinkResponse);
-            UrlDao.submitLink(getLinkResponse);
+            break;
         }
 
         return getLinkResponse;
@@ -60,7 +74,7 @@ public class LinkApi {
             return UrlDao.getLink(Id);
         }
         else{
-            return getLinkResponse = new SubmitResponse("0", null ,"404","Not Found",null);
+            return getLinkResponse = new SubmitResponse("0", null ,null,"404","Not Found",null);
         }
 
     }
@@ -68,11 +82,14 @@ public class LinkApi {
     //Return all Shortened Links
     @GetMapping("/getall")
     public  Map<String,SubmitResponse> getUrls () throws Exception {
-        if (dictionary != null){
+
+        if (dictionary.values().size() > 0){
             return dictionary;
-        }else{
-            return UrlDao.getall();
+        }
+        else {
+            return UrlDao.getAll();
         }
     }
+
 
 }
