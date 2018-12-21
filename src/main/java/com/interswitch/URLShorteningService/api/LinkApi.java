@@ -83,12 +83,9 @@ public class LinkApi {
     @GetMapping("/getall")
     public  Map<String,SubmitResponse> getUrls () throws Exception {
 
-        if (dictionary.values().size() > 0){
-            return dictionary;
-        }
-        else {
-            return UrlDao.getAll();
-        }
+        dictionary.clear();
+        dictionary = UrlDao.getAll();
+        return dictionary;
     }
 
 
